@@ -324,7 +324,7 @@ def fmpw_lbkClose(sym, lbk=15):
     try:
         date=utils.ddelt(lbk)
 
-        urlpc='https://financialmodelingprep.com/api/v3/historical-price-full/'+sym+'?from='+date+'&to='+date+'&serietype=line&apikey=deb84eb89cd5f862f8f3216ea4d44719'    
+        urlpc='https://financialmodelingprep.com/api/v3/historical-price-full/'+sym+'?from='+date+'&to='+date+'&serietype=line&apikey='+apikey    
         url = urlpc
         response = urlopen(url, context=ssl_context)
         data = response.read().decode("utf-8")
@@ -335,7 +335,7 @@ def fmpw_lbkClose(sym, lbk=15):
     except KeyError:
         date=utils.ddelt(lbk+1)
 
-        urlpc='https://financialmodelingprep.com/api/v3/historical-price-full/'+sym+'?from='+date+'&to='+date+'&serietype=line&apikey=deb84eb89cd5f862f8f3216ea4d44719'    
+        urlpc='https://financialmodelingprep.com/api/v3/historical-price-full/'+sym+'?from='+date+'&to='+date+'&serietype=line&apikey='+apikey    
         url = urlpc
         response = urlopen(url, context=ssl_context)
         data = response.read().decode("utf-8")
