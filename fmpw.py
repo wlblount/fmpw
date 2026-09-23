@@ -439,27 +439,32 @@ def fmpw_returns(syms=['XLF', 'XLE', 'XLV', 'XLI', 'XLP', 'XLY', 'XLC', 'XLRE', 
     if sort_by not in days:
         sort_by = days[0]
 
-    # Calculate YTD trading days
-    ytd_days = utils.ytd()  # Number of trading days YTD (e.g., 42 on March 3, 2025)
-    ndays = [ytd_days if x == 'YTD' else int(x) for x in days]  # Replace 'YTD' with trading days
+    # Lookbacks are counted per symbol on that symbol's own trading days, so mixing
+    # exchanges (e.g. US + London) doesn't shift the row counts.  YTD is measured
+    # from each symbol's last close of the prior year.
+    int_days = sorted(set(int(x) for x in days if x != 'YTD'))
+    cols = [str(d) for d in int_days] + (['YTD'] if 'YTD' in days else [])
 
-    # Create column labels, preserving 'YTD'
-    unique_ndays = sorted(set(ndays))  # Unique sorted days for calculation
-    cols = []
-    for d in unique_ndays:
-        if d == ytd_days and 'YTD' in days:
-            cols.append('YTD')
-        else:
-            cols.append(str(d))  # Convert others to strings
-
-    # Fetch price data
-    df = fmp_priceLoop(syms, start=utils.ddelt(max(ndays)+2), fac='close', supress=supress)
+    # Fetch enough calendar history for the longest lookback and the prior year-end
+    today = pd.Timestamp.today().normalize()
+    year_start = pd.Timestamp(year=today.year, month=1, day=1)
+    start = today - pd.Timedelta(days=int(max(int_days, default=0) * 1.5) + 10)
+    start = min(start, year_start - pd.Timedelta(days=14))
+    df = fmp_priceLoop(syms, start=start.strftime('%Y-%m-%d'), fac='adjClose', supress=supress)
+    df = df.loc[:, ~df.columns.duplicated()]
 
     # Calculate returns
-    dff = pd.DataFrame(
-        [np.round((df.iloc[-1, :] / df.iloc[-d - 1, :] - 1) * 100, 2) for d in unique_ndays], 
-        index=cols
-    ).T
+    rows = {}
+    for sym in df.columns:
+        s = df[sym].dropna()
+        r = {}
+        for d in int_days:
+            r[str(d)] = (s.iloc[-1] / s.iloc[-d - 1] - 1) * 100 if len(s) > d else np.nan
+        if 'YTD' in days:
+            base = s[s.index < year_start]
+            r['YTD'] = (s.iloc[-1] / base.iloc[-1] - 1) * 100 if len(base) and len(s) else np.nan
+        rows[sym] = r
+    dff = pd.DataFrame.from_dict(rows, orient='index')[cols].round(2)
 
     # Remove duplicate symbols
     dff = dff[~dff.index.duplicated(keep='first')]
